@@ -9,6 +9,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
+from .services import async_register_services
 from .store import NudgeStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +34,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: NudgeConfigEntry) -> boo
     await store.async_load()
 
     entry.runtime_data = NudgeRuntimeData(store)
+
+    # Register all nudge.* services.
+    async_register_services(hass, store)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

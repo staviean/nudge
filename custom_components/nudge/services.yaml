@@ -1,0 +1,282 @@
+create_task:
+  name: Create task
+  description: Create a new Nudge task.
+  fields:
+    summary:
+      name: Summary
+      description: The task title.
+      required: true
+      example: "Take out the trash"
+      selector:
+        text:
+    category_id:
+      name: Category ID
+      description: UID of the category to file this task under (optional).
+      selector:
+        text:
+    description:
+      name: Description
+      selector:
+        text:
+          multiline: true
+    due:
+      name: Due
+      description: When the task is due.
+      selector:
+        datetime:
+    end:
+      name: End / deadline
+      selector:
+        datetime:
+    duration_minutes:
+      name: Duration (minutes)
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    frequency:
+      name: Frequency
+      selector:
+        select:
+          options:
+            - none
+            - daily
+            - weekly
+            - monthly
+            - yearly
+    notification_type:
+      name: Notification type
+      selector:
+        select:
+          options:
+            - none
+            - push
+            - announce
+            - both
+    notify_service:
+      name: Notify service override
+      description: e.g. notify.mobile_app_pixel
+      selector:
+        text:
+    nag_enabled:
+      name: Enable nagging
+      selector:
+        boolean:
+    nag_interval_minutes:
+      name: Nag interval (minutes)
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    quiet_hours_override:
+      name: Ignore quiet hours
+      selector:
+        boolean:
+    ifttt_event:
+      name: IFTTT event name
+      selector:
+        text:
+
+edit_task:
+  name: Edit task
+  description: Edit an existing Nudge task by its UID.
+  fields:
+    uid:
+      name: Task UID
+      required: true
+      selector:
+        text:
+    summary:
+      name: Summary
+      selector:
+        text:
+    category_id:
+      name: Category ID
+      selector:
+        text:
+    description:
+      name: Description
+      selector:
+        text:
+          multiline: true
+    due:
+      name: Due
+      selector:
+        datetime:
+    end:
+      name: End / deadline
+      selector:
+        datetime:
+    duration_minutes:
+      name: Duration (minutes)
+      selector:
+        number:
+          min: 0
+          max: 1440
+          mode: box
+    frequency:
+      name: Frequency
+      selector:
+        select:
+          options: [none, daily, weekly, monthly, yearly]
+    notification_type:
+      name: Notification type
+      selector:
+        select:
+          options: [none, push, announce, both]
+    notify_service:
+      name: Notify service override
+      selector:
+        text:
+    nag_enabled:
+      name: Enable nagging
+      selector:
+        boolean:
+    nag_interval_minutes:
+      name: Nag interval (minutes)
+      selector:
+        number:
+          min: 1
+          max: 1440
+          mode: box
+    quiet_hours_override:
+      name: Ignore quiet hours
+      selector:
+        boolean:
+    ifttt_event:
+      name: IFTTT event name
+      selector:
+        text:
+
+delete_task:
+  name: Delete task
+  description: Permanently delete a task by its UID.
+  fields:
+    uid:
+      name: Task UID
+      required: true
+      selector:
+        text:
+
+complete_task:
+  name: Complete task
+  description: Mark a task complete (repeating tasks roll to the next occurrence).
+  fields:
+    uid:
+      name: Task UID
+      required: true
+      selector:
+        text:
+
+snooze_task:
+  name: Snooze task
+  description: Defer a task's nagging by an interval.
+  fields:
+    uid:
+      name: Task UID
+      required: true
+      selector:
+        text:
+    minutes:
+      name: Minutes to snooze
+      selector:
+        number:
+          min: 1
+          max: 1440
+          mode: box
+
+push_to_next:
+  name: Push to next scheduled time
+  description: Reschedule a repeating task to its next occurrence.
+  fields:
+    uid:
+      name: Task UID
+      required: true
+      selector:
+        text:
+
+add_subtask:
+  name: Add subtask
+  fields:
+    task_uid:
+      name: Parent task UID
+      required: true
+      selector:
+        text:
+    summary:
+      name: Subtask summary
+      required: true
+      selector:
+        text:
+
+toggle_subtask:
+  name: Toggle subtask
+  fields:
+    task_uid:
+      name: Parent task UID
+      required: true
+      selector:
+        text:
+    subtask_uid:
+      name: Subtask UID
+      required: true
+      selector:
+        text:
+
+create_category:
+  name: Create category
+  fields:
+    name:
+      name: Name
+      required: true
+      selector:
+        text:
+    color:
+      name: Color (hex)
+      example: "#E91E63"
+      selector:
+        text:
+    icon:
+      name: Icon (mdi:...)
+      example: "mdi:broom"
+      selector:
+        icon:
+
+edit_category:
+  name: Edit category
+  fields:
+    uid:
+      name: Category UID
+      required: true
+      selector:
+        text:
+    name:
+      name: Name
+      selector:
+        text:
+    color:
+      name: Color (hex)
+      selector:
+        text:
+    icon:
+      name: Icon (mdi:...)
+      selector:
+        icon:
+
+delete_category:
+  name: Delete category
+  fields:
+    uid:
+      name: Category UID
+      required: true
+      selector:
+        text:
+    reassign_to:
+      name: Reassign tasks to (category UID)
+      description: Leave blank to make tasks uncategorized.
+      selector:
+        text:
