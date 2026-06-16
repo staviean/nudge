@@ -43,6 +43,7 @@ class Frequency(StrEnum):
     """Repeat frequency for a task."""
 
     NONE = "none"
+    HOURLY = "hourly"
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"

@@ -9,6 +9,7 @@ Everything is plain/serializable so it can be persisted via helpers.storage.Stor
 
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass, field, asdict
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -43,6 +44,16 @@ def _parse_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return datetime.fromisoformat(value).date()
+
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    """Return *dt* shifted by *months*, clamping the day to the target month's
+    last valid day (so Jan 31 + 1 month -> Feb 28/29, never an overflow)."""
+    total = dt.year * 12 + (dt.month - 1) + months
+    year, month0 = divmod(total, 12)
+    month = month0 + 1
+    last_day = calendar.monthrange(year, month)[1]
+    return dt.replace(year=year, month=month, day=min(dt.day, last_day))
 
 
 @dataclass
@@ -102,6 +113,8 @@ class Task:
 
     # Repetition
     frequency: Frequency = Frequency.NONE
+    interval: int = 1                        # "every N" multiplier (every 3 days/hours/weeks)
+    weekdays: list[int] = field(default_factory=list)  # WEEKLY: 0=Mon..6=Sun; [] = plain weekly
 
     # Notification + nag config
     notification_type: NotificationType = NotificationType.NONE
@@ -135,6 +148,8 @@ class Task:
             "end": _iso(self.end),
             "duration_minutes": self.duration_minutes,
             "frequency": str(self.frequency),
+            "interval": self.interval,
+            "weekdays": list(self.weekdays),
             "notification_type": str(self.notification_type),
             "notify_service": self.notify_service,
             "nag_enabled": self.nag_enabled,
@@ -160,6 +175,8 @@ class Task:
             end=_parse_dt(data.get("end")),
             duration_minutes=data.get("duration_minutes"),
             frequency=Frequency(data.get("frequency", Frequency.NONE)),
+            interval=int(data.get("interval", 1) or 1),
+            weekdays=[int(d) for d in data.get("weekdays", [])],
             notification_type=NotificationType(
                 data.get("notification_type", NotificationType.NONE)
             ),
@@ -179,19 +196,72 @@ class Task:
 
     # ----- behavior helpers ------------------------------------------------
     def next_occurrence(self, from_dt: datetime) -> datetime | None:
-        """Compute the next due datetime for a repeating task."""
-        if self.due is None:
+        """Return the next due datetime strictly after *from_dt*.
+
+        The recurrence is anchored to the original ``due`` time-of-day. The
+        result is always advanced at least one period beyond ``due`` (so a task
+        never re-schedules onto its current slot) and strictly past ``from_dt``
+        (so an overdue task jumps to the next *future* slot instead of
+        re-nagging in the past).
+        """
+        if self.due is None or self.frequency is Frequency.NONE:
             return None
+
+        due = self.due
+        interval = self.interval if self.interval and self.interval > 0 else 1
+
+        if self.frequency is Frequency.HOURLY:
+            return self._advance_fixed(timedelta(hours=interval), from_dt)
         if self.frequency is Frequency.DAILY:
-            return self.due + timedelta(days=1)
+            return self._advance_fixed(timedelta(days=interval), from_dt)
         if self.frequency is Frequency.WEEKLY:
-            return self.due + timedelta(weeks=1)
+            if self.weekdays:
+                return self._next_weekday_occurrence(from_dt, interval)
+            return self._advance_fixed(timedelta(weeks=interval), from_dt)
         if self.frequency is Frequency.MONTHLY:
-            # Naive month roll; refined in the scheduler chunk.
-            month = self.due.month % 12 + 1
-            year = self.due.year + (1 if self.due.month == 12 else 0)
-            day = min(self.due.day, 28)
-            return self.due.replace(year=year, month=month, day=day)
+            k = 1
+            nxt = _add_months(due, interval)
+            while nxt <= from_dt:
+                k += 1
+                nxt = _add_months(due, interval * k)
+            return nxt
         if self.frequency is Frequency.YEARLY:
-            return self.due.replace(year=self.due.year + 1)
+            k = 1
+            nxt = _add_months(due, 12 * interval)
+            while nxt <= from_dt:
+                k += 1
+                nxt = _add_months(due, 12 * interval * k)
+            return nxt
+        return None
+
+    def _advance_fixed(self, step: timedelta, from_dt: datetime) -> datetime:
+        """Advance ``due`` by whole ``step``s until strictly past both ``due``
+        (at least one step) and ``from_dt``."""
+        nxt = self.due + step
+        while nxt <= from_dt:
+            nxt += step
+        return nxt
+
+    def _next_weekday_occurrence(
+        self, from_dt: datetime, interval: int
+    ) -> datetime | None:
+        """Next occurrence for WEEKLY recurrence restricted to ``weekdays``.
+
+        Scans forward day by day for the first selected weekday, at ``due``'s
+        time-of-day, on a week that is an ``interval`` multiple from the due
+        week, and strictly after both ``due`` and ``from_dt``.
+        """
+        due = self.due
+        latest = max(due, from_dt)
+        tod = due.time()
+        anchor_monday = due.date() - timedelta(days=due.weekday())
+        day = latest.date()
+        for _ in range(372):  # > 53 weeks; guaranteed to find a match
+            candidate = datetime.combine(day, tod)
+            if candidate > latest and candidate.weekday() in self.weekdays:
+                cand_monday = candidate.date() - timedelta(days=candidate.weekday())
+                weeks_since = (cand_monday - anchor_monday).days // 7
+                if weeks_since >= 0 and weeks_since % interval == 0:
+                    return candidate
+            day += timedelta(days=1)
         return None
