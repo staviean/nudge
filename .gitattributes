@@ -1,0 +1,18 @@
+# Normalize line endings: store everything as LF in the repo.
+# Git converts to the platform's native endings on checkout if needed,
+# so Windows editors won't keep producing phantom CRLF-vs-LF diffs.
+* text=auto eol=lf
+
+# Explicit text types (belt-and-suspenders; the wildcard already covers these).
+*.py    text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+
+# Treat known binaries as binary (never line-ending-normalized).
+*.png   binary
+*.jpg   binary
+*.ico   binary

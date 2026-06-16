@@ -9,7 +9,8 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .services import async_register_services
+from .nag_engine import NagEngine
+from .services import async_register_services, async_unregister_services
 from .store import NudgeStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,10 +23,9 @@ type NudgeConfigEntry = ConfigEntry["NudgeRuntimeData"]
 class NudgeRuntimeData:
     """Runtime objects shared across the integration."""
 
-    def __init__(self, store: NudgeStore) -> None:
+    def __init__(self, store: NudgeStore, nag_engine: NagEngine) -> None:
         self.store = store
-        # nag_engine is attached in a later chunk.
-        self.nag_engine = None
+        self.nag_engine = nag_engine
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: NudgeConfigEntry) -> bool:
@@ -33,7 +33,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: NudgeConfigEntry) -> boo
     store = NudgeStore(hass)
     await store.async_load()
 
-    entry.runtime_data = NudgeRuntimeData(store)
+    nag_engine = NagEngine(hass, store, entry)
+    await nag_engine.async_start()
+
+    entry.runtime_data = NudgeRuntimeData(store, nag_engine)
 
     # Register all nudge.* services.
     async_register_services(hass, store)
@@ -49,6 +52,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: NudgeConfigEntry) -> boo
 
 async def async_unload_entry(hass: HomeAssistant, entry: NudgeConfigEntry) -> bool:
     """Unload a config entry."""
+    runtime: NudgeRuntimeData | None = getattr(entry, "runtime_data", None)
+    if runtime is not None and runtime.nag_engine is not None:
+        await runtime.nag_engine.async_stop()
+    # Remove services so the next async_setup_entry re-registers them
+    # with a fresh store reference (avoids stale-handler bug on reload).
+    async_unregister_services(hass)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

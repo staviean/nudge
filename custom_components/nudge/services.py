@@ -39,6 +39,20 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+_ALL_SERVICES = [
+    SERVICE_CREATE_TASK,
+    SERVICE_EDIT_TASK,
+    SERVICE_DELETE_TASK,
+    SERVICE_COMPLETE_TASK,
+    SERVICE_SNOOZE_TASK,
+    SERVICE_PUSH_NEXT,
+    SERVICE_ADD_SUBTASK,
+    SERVICE_TOGGLE_SUBTASK,
+    SERVICE_CREATE_CATEGORY,
+    SERVICE_EDIT_CATEGORY,
+    SERVICE_DELETE_CATEGORY,
+]
+
 # --- Schemas ---------------------------------------------------------------
 CREATE_TASK_SCHEMA = vol.Schema(
     {
@@ -127,7 +141,11 @@ DELETE_CATEGORY_SCHEMA = vol.Schema(
 
 @callback
 def async_register_services(hass: HomeAssistant, store: "NudgeStore") -> None:
-    """Register all Nudge services. Safe to call once per entry setup."""
+    """Register all Nudge services with the current store instance.
+
+    Always re-registers (no has_service guard) so that after an integration
+    reload the handlers are bound to the fresh store rather than a stale one.
+    """
 
     async def create_task(call: ServiceCall) -> None:
         d = call.data
@@ -228,5 +246,12 @@ def async_register_services(hass: HomeAssistant, store: "NudgeStore") -> None:
         (SERVICE_DELETE_CATEGORY, delete_category, DELETE_CATEGORY_SCHEMA),
     ]
     for name, handler, schema in services:
-        if not hass.services.has_service(DOMAIN, name):
-            hass.services.async_register(DOMAIN, name, handler, schema=schema)
+        hass.services.async_register(DOMAIN, name, handler, schema=schema)
+
+
+@callback
+def async_unregister_services(hass: HomeAssistant) -> None:
+    """Remove all Nudge services. Called on entry unload so the next
+    async_setup_entry re-registers handlers bound to a fresh store."""
+    for name in _ALL_SERVICES:
+        hass.services.async_remove(DOMAIN, name)
