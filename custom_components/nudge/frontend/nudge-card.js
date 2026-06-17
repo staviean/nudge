@@ -1,6 +1,6 @@
-/* Nudge Card — minimal live view (read-only).
- * Phase 5b: subscribes to nudge/subscribe and renders categories + tasks.
- * Editing/CRUD comes in Phase 6.
+/* Nudge Card — live view with task actions (Phase 6a).
+ * Read + act: complete, snooze, push-to-next, delete, toggle subtasks.
+ * Create/edit forms come in 6b / Phase 7.
  */
 
 const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -37,18 +37,14 @@ function dueText(iso) {
 }
 
 class NudgeCard extends HTMLElement {
-  setConfig(config) {
-    this._config = config || {};
-  }
-
-  getCardSize() {
-    return 6;
-  }
+  setConfig(config) { this._config = config || {}; }
+  getCardSize() { return 6; }
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._subscribed) {
-      this._subscribed = true;
+    if (!this._wired) {
+      this._wired = true;
+      this.addEventListener("click", (e) => this._onClick(e));
       this._subscribe();
     }
   }
@@ -56,10 +52,7 @@ class NudgeCard extends HTMLElement {
   async _subscribe() {
     try {
       this._unsub = await this._hass.connection.subscribeMessage(
-        (data) => {
-          this._data = data;
-          this._render();
-        },
+        (data) => { this._data = data; this._render(); },
         { type: "nudge/subscribe" }
       );
     } catch (err) {
@@ -71,8 +64,46 @@ class NudgeCard extends HTMLElement {
     if (this._unsub) {
       this._unsub();
       this._unsub = null;
-      this._subscribed = false;
+      this._wired = false;
     }
+  }
+
+  _onClick(e) {
+    const el = e.target.closest("[data-action]");
+    if (!el || !this._hass) return;
+    const { action, uid, sub } = el.dataset;
+    const task = ((this._data && this._data.tasks) || []).find((t) => t.uid === uid);
+    const recurring = task && task.frequency && task.frequency !== "none";
+    if (action === "complete") {
+      this._do("complete_task", { uid }, recurring ? "Rolled to next occurrence" : "Task completed");
+    } else if (action === "snooze") {
+      this._do("snooze_task", { uid }, "Snoozed");
+    } else if (action === "next") {
+      this._do("push_to_next", { uid }, "Pushed to next occurrence");
+    } else if (action === "subtask") {
+      this._do("toggle_subtask", { task_uid: uid, subtask_uid: sub }, null);
+    } else if (action === "delete") {
+      if (window.confirm("Delete this task? This can't be undone.")) {
+        this._do("delete_task", { uid }, "Task deleted");
+      }
+    }
+  }
+
+  async _do(service, data, successMsg) {
+    try {
+      await this._hass.callService("nudge", service, data);
+      if (successMsg) this._toast(successMsg);
+    } catch (err) {
+      this._toast(`Error: ${err && err.message ? err.message : err}`);
+    }
+  }
+
+  _toast(message) {
+    this.dispatchEvent(new CustomEvent("hass-notification", {
+      detail: { message, duration: 3000 },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   _renderError(msg) {
@@ -97,9 +128,7 @@ class NudgeCard extends HTMLElement {
 
     let html = `<ha-card header="Nudge"><div style="padding:0 16px 16px">`;
     if (tasks.length === 0) {
-      html +=
-        `<div style="padding:16px 0;color:var(--secondary-text-color)">` +
-        `No tasks yet. Create one with the <code>nudge.create_task</code> action.</div>`;
+      html += `<div style="padding:16px 0;color:var(--secondary-text-color)">No tasks yet.</div>`;
     }
     for (const k of order) {
       const list = groups[k] || [];
@@ -118,6 +147,8 @@ class NudgeCard extends HTMLElement {
 
   _taskHtml(t) {
     const done = t.status === "completed";
+    const uid = esc(t.uid);
+
     const meta = [];
     const due = dueText(t.due);
     if (due) meta.push(`⏰ ${esc(due)}`);
@@ -126,38 +157,54 @@ class NudgeCard extends HTMLElement {
     const tg = t.notify_targets || [];
     if (tg.length) meta.push(`\u{1F4E3} ${esc(tg.join(", "))}`);
 
+    const circle = done
+      ? `<div style="font-size:18px;line-height:1.2;color:var(--secondary-text-color)">✓</div>`
+      : `<div data-action="complete" data-uid="${uid}" title="Mark done" style="font-size:18px;line-height:1.2;cursor:pointer">○</div>`;
+
     const subs = t.subtasks || [];
     const subHtml = subs.length
       ? `<div style="margin:4px 0 0 24px">` +
-        subs
-          .map(
-            (s) =>
-              `<div style="color:var(--secondary-text-color)">${s.done ? "✓" : "○"} ${esc(s.summary)}</div>`
-          )
-          .join("") +
+        subs.map((s) =>
+          `<div data-action="subtask" data-uid="${uid}" data-sub="${esc(s.uid)}" ` +
+          `style="color:var(--secondary-text-color);cursor:pointer">${s.done ? "✓" : "○"} ${esc(s.summary)}</div>`
+        ).join("") +
         `</div>`
       : "";
 
+    const btn = (act, label, color) =>
+      `<span data-action="${act}" data-uid="${uid}" style="cursor:pointer;font-size:12px;` +
+      `color:${color};margin-right:14px">${label}</span>`;
+    let actions = "";
+    if (!done) {
+      actions += btn("snooze", "Snooze", "var(--primary-color)");
+      if (t.frequency && t.frequency !== "none") actions += btn("next", "Next", "var(--primary-color)");
+    }
+    actions += btn("delete", "Delete", "var(--error-color,#db4437)");
+    const actionRow = `<div style="margin-top:6px">${actions}</div>`;
+
     return (
       `<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--divider-color)">` +
-      `<div style="font-size:18px;line-height:1.2">${done ? "✓" : "○"}</div>` +
+      circle +
       `<div style="flex:1">` +
       `<div style="${done ? "text-decoration:line-through;color:var(--secondary-text-color)" : ""}">${esc(t.summary)}</div>` +
-      (meta.length
-        ? `<div style="font-size:12px;color:var(--secondary-text-color);margin-top:2px">${meta.join(" &nbsp; ")}</div>`
-        : "") +
+      (meta.length ? `<div style="font-size:12px;color:var(--secondary-text-color);margin-top:2px">${meta.join(" &nbsp; ")}</div>` : "") +
       subHtml +
+      actionRow +
       `</div></div>`
     );
   }
 }
 
-customElements.define("nudge-card", NudgeCard);
+if (!customElements.get("nudge-card")) {
+  customElements.define("nudge-card", NudgeCard);
+}
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "nudge-card",
-  name: "Nudge",
-  description: "Live view of your Nudge tasks",
-  preview: false,
-});
-console.info("%c NUDGE-CARD %c loaded ", "background:#3f51b5;color:#fff;border-radius:3px", "");
+if (!window.customCards.some((c) => c.type === "nudge-card")) {
+  window.customCards.push({
+    type: "nudge-card",
+    name: "Nudge",
+    description: "Live view of your Nudge tasks",
+    preview: false,
+  });
+}
+console.info("%c NUDGE-CARD %c 6a (actions) ", "background:#3f51b5;color:#fff;border-radius:3px", "");
