@@ -5,6 +5,23 @@ Newest at the top. See also [[BUILD_PLAN]] and [[Ideas-Backlog]].
 
 ---
 
+## 2026-06-17 — Phase 4 complete: recurrence, announcements, multi-target notify (backend)
+**Decisions (implementation):**
+- **Recurrence model:** added `HOURLY` + two `Task` fields — `interval` ("every N") and `weekdays`
+  (0=Mon..6=Sun; `[]` = plain weekly). `next_occurrence` rewritten to advance **strictly past now**
+  (fixes overdue re-nag loops) and to clamp month/leap ends with **no day-of-month drift**.
+- **Announcements:** task `announcement_message` overrides the spoken TTS text; incomplete subtasks
+  that carry their own message get appended. Push notifications still use summary/description.
+- **Notify targets:** `notify_service` (single) → `notify_targets` (**list**); engine loops over all
+  targets; field renamed **"Send reminders to"** with a notify-domain multi-entity picker. Storage
+  bumped to **minor v2**; `from_dict` migrates old `notify_service` into the list.
+**Why:** Covers "hourly/specific-days/etc." and multi-device family use without external deps
+(hand-rolled recurrence) or breaking old data (tolerant `from_dict` + minor bump).
+**Open risk (→ Phase 5):** picking a notify *entity* sends **plain** (no action buttons); buttons
+still need a legacy `notify.mobile_app_*` service. Phase 5 will resolve a friendly entity pick back
+to its service so buttons survive — to be validated against real devices.
+**Status:** Backend complete and headlessly tested (recurrence unit tests + serialization/dispatch checks).
+
 ## 2026-06-16 — Subtasks stay simple (announcement-only)
 **Decision:** Subtasks get their own optional custom announcement message, but **not** their own
 schedule/recurrence. They reset to undone when the parent task rolls to its next occurrence.

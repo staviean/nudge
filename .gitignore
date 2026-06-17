@@ -20,6 +20,9 @@ node_modules/
 dist/
 *.zip
 
+# Machine-specific deploy script (hardcodes HA IP)
+deploy-to-ha.bat
+
 # Obsidian (vault = repo root). Ignore UI-state churn; keep shareable config.
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
