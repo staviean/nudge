@@ -355,9 +355,17 @@ class NagEngine:
             )
             return
 
-        message = f"Nudge reminder: {task.summary}."
-        if task.description:
-            message += f" {task.description}."
+        if task.announcement_message:
+            message = task.announcement_message
+        else:
+            message = f"Nudge reminder: {task.summary}."
+            if task.description:
+                message += f" {task.description}."
+
+        # Append any incomplete subtasks that carry their own announcement.
+        for sub in task.subtasks:
+            if not sub.done and sub.announcement_message:
+                message += f" {sub.announcement_message}"
 
         await self.hass.services.async_call(
             "tts",

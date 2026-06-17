@@ -141,11 +141,13 @@ class NudgeStore:
         return task
 
     # ----- subtask helpers -------------------------------------------------
-    async def add_subtask(self, task_uid: str, summary: str) -> Subtask | None:
+    async def add_subtask(
+        self, task_uid: str, summary: str, announcement_message: str | None = None
+    ) -> Subtask | None:
         task = self.tasks.get(task_uid)
         if task is None:
             return None
-        sub = Subtask(summary=summary)
+        sub = Subtask(summary=summary, announcement_message=announcement_message)
         task.subtasks.append(sub)
         await self.async_save()
         return sub

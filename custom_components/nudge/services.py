@@ -63,8 +63,11 @@ CREATE_TASK_SCHEMA = vol.Schema(
         vol.Optional("end"): cv.datetime,
         vol.Optional("duration_minutes"): vol.All(int, vol.Range(min=0)),
         vol.Optional("frequency"): vol.In([f.value for f in Frequency]),
+        vol.Optional("interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional("weekdays"): [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
         vol.Optional("notification_type"): vol.In([n.value for n in NotificationType]),
         vol.Optional("notify_service"): cv.string,
+        vol.Optional("announcement_message"): cv.string,
         vol.Optional("nag_enabled"): cv.boolean,
         vol.Optional("nag_interval_minutes"): vol.All(int, vol.Range(min=1)),
         vol.Optional("quiet_hours_override"): cv.boolean,
@@ -82,8 +85,11 @@ EDIT_TASK_SCHEMA = vol.Schema(
         vol.Optional("end"): cv.datetime,
         vol.Optional("duration_minutes"): vol.All(int, vol.Range(min=0)),
         vol.Optional("frequency"): vol.In([f.value for f in Frequency]),
+        vol.Optional("interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional("weekdays"): [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
         vol.Optional("notification_type"): vol.In([n.value for n in NotificationType]),
         vol.Optional("notify_service"): cv.string,
+        vol.Optional("announcement_message"): cv.string,
         vol.Optional("nag_enabled"): cv.boolean,
         vol.Optional("nag_interval_minutes"): vol.All(int, vol.Range(min=1)),
         vol.Optional("quiet_hours_override"): cv.boolean,
@@ -104,6 +110,7 @@ ADD_SUBTASK_SCHEMA = vol.Schema(
     {
         vol.Required("task_uid"): cv.string,
         vol.Required("summary"): cv.string,
+        vol.Optional("announcement_message"): cv.string,
     }
 )
 
@@ -157,10 +164,13 @@ def async_register_services(hass: HomeAssistant, store: "NudgeStore") -> None:
             end=d.get("end"),
             duration_minutes=d.get("duration_minutes"),
             frequency=Frequency(d.get("frequency", Frequency.NONE)),
+            interval=d.get("interval", 1) or 1,
+            weekdays=d.get("weekdays") or [],
             notification_type=NotificationType(
                 d.get("notification_type", NotificationType.NONE)
             ),
             notify_service=d.get("notify_service"),
+            announcement_message=d.get("announcement_message"),
             nag_enabled=d.get("nag_enabled", False),
             nag_interval_minutes=d.get("nag_interval_minutes"),
             quiet_hours_override=d.get("quiet_hours_override", False),
@@ -209,7 +219,11 @@ def async_register_services(hass: HomeAssistant, store: "NudgeStore") -> None:
             await store.async_save()
 
     async def add_subtask(call: ServiceCall) -> None:
-        await store.add_subtask(call.data["task_uid"], call.data["summary"])
+        await store.add_subtask(
+            call.data["task_uid"],
+            call.data["summary"],
+            call.data.get("announcement_message"),
+        )
 
     async def toggle_subtask(call: ServiceCall) -> None:
         await store.toggle_subtask(call.data["task_uid"], call.data["subtask_uid"])

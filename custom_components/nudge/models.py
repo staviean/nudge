@@ -62,6 +62,7 @@ class Subtask:
 
     summary: str
     done: bool = False
+    announcement_message: str | None = None  # optional custom TTS text for this subtask
     uid: str = field(default_factory=_new_id)
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,6 +73,7 @@ class Subtask:
         return cls(
             summary=data["summary"],
             done=bool(data.get("done", False)),
+            announcement_message=data.get("announcement_message"),
             uid=data.get("uid", _new_id()),
         )
 
@@ -119,6 +121,7 @@ class Task:
     # Notification + nag config
     notification_type: NotificationType = NotificationType.NONE
     notify_service: str | None = None        # override default notify target
+    announcement_message: str | None = None  # custom TTS/announce text (overrides default)
     nag_enabled: bool = False
     nag_interval_minutes: int | None = None  # None -> use integration default
     quiet_hours_override: bool = False       # if True, this task ignores quiet hours
@@ -152,6 +155,7 @@ class Task:
             "weekdays": list(self.weekdays),
             "notification_type": str(self.notification_type),
             "notify_service": self.notify_service,
+            "announcement_message": self.announcement_message,
             "nag_enabled": self.nag_enabled,
             "nag_interval_minutes": self.nag_interval_minutes,
             "quiet_hours_override": self.quiet_hours_override,
@@ -181,6 +185,7 @@ class Task:
                 data.get("notification_type", NotificationType.NONE)
             ),
             notify_service=data.get("notify_service"),
+            announcement_message=data.get("announcement_message"),
             nag_enabled=bool(data.get("nag_enabled", False)),
             nag_interval_minutes=data.get("nag_interval_minutes"),
             quiet_hours_override=bool(data.get("quiet_hours_override", False)),
