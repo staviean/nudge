@@ -85,11 +85,13 @@ create_task:
             - push
             - announce
             - both
-    notify_service:
-      name: Notify service override
-      description: e.g. notify.mobile_app_pixel
+    notify_targets:
+      name: Send reminders to
+      description: Devices/services to send this task's reminders to. Leave empty to use your default.
       selector:
-        text:
+        entity:
+          domain: notify
+          multiple: true
     announcement_message:
       name: Custom announcement message
       description: Spoken text for TTS announcements. Overrides the default summary/description.
@@ -191,10 +193,12 @@ edit_task:
       selector:
         select:
           options: [none, push, announce, both]
-    notify_service:
-      name: Notify service override
+    notify_targets:
+      name: Send reminders to
       selector:
-        text:
+        entity:
+          domain: notify
+          multiple: true
     announcement_message:
       name: Custom announcement message
       selector:

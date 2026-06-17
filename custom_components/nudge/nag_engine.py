@@ -277,11 +277,14 @@ class NagEngine:
            dict including action buttons and tag.
         2. Fall back to ``notify.send_message`` if the entity cannot be found.
         """
-        notify_entity = task.notify_service or self._default_notify
-        if not notify_entity:
+        targets = list(task.notify_targets) or (
+            [self._default_notify] if self._default_notify else []
+        )
+        if not targets:
             _LOGGER.warning(
-                "Task '%s' wants push notification but no notify entity is configured. "
-                "Set 'default_notify_service' in Nudge options.",
+                "Task '%s' wants push notification but no targets are configured. "
+                "Set 'Send reminders to' on the task or 'default_notify_service' in "
+                "Nudge options.",
                 task.summary,
             )
             return
@@ -304,44 +307,46 @@ class NagEngine:
             ],
         }
 
-        # Route based on whether the configured value is an entity or a legacy service.
-        #
-        # - Entity (e.g. notify.device_evol_otr): use notify.send_message with target.
-        #   The entity-based schema only allows message + title — no data/actions.
-        # - Legacy service (e.g. notify.mobile_app_evol_otr): call it directly.
-        #   Legacy services accept a full data dict including action buttons.
-        #
-        # To get Done/Snooze/Next time buttons, configure notify_service to the
-        # legacy service name (Developer Tools → Actions → search notify.mobile_app_*).
         from homeassistant.helpers import entity_registry as er
 
         entity_reg = er.async_get(self.hass)
-        is_entity = entity_reg.async_get(notify_entity) is not None
+        for target in targets:
+            try:
+                await self._async_push_one(target, body, title, mobile_data, entity_reg)
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Nudge push to '%s' failed", target)
 
+    async def _async_push_one(self, target, body, title, mobile_data, entity_reg) -> None:
+        """Dispatch one push to a single target.
+
+        - Entity (e.g. notify.device_pixel): use notify.send_message with target.
+          The entity-based schema only allows message + title — no action buttons.
+        - Legacy service (e.g. notify.mobile_app_pixel): call it directly with the
+          full data dict, which preserves the Done/Snooze/Next time buttons.
+        """
+        is_entity = entity_reg.async_get(target) is not None
         if is_entity:
             _LOGGER.info(
-                "Nudge push: '%s' is an entity — sending plain notification "
-                "(no action buttons). Set notify_service to a legacy service "
-                "like notify.mobile_app_* to enable buttons.",
-                notify_entity,
+                "Nudge push: '%s' is an entity — plain notification (no buttons). "
+                "Use a legacy notify.mobile_app_* service to enable action buttons.",
+                target,
             )
             await self.hass.services.async_call(
                 "notify",
                 "send_message",
                 service_data={"message": body, "title": title},
-                target={"entity_id": notify_entity},
+                target={"entity_id": target},
             )
-        else:
-            # Treat as a legacy service — call it directly with the full data dict.
-            domain, svc_name = notify_entity.split(".", 1)
-            _LOGGER.info(
-                "Nudge push: '%s' is a legacy service — sending actionable notification",
-                notify_entity,
-            )
+        elif "." in target:
+            domain, svc_name = target.split(".", 1)
             await self.hass.services.async_call(
                 domain,
                 svc_name,
                 {"message": body, "title": title, "data": mobile_data},
+            )
+        else:
+            _LOGGER.warning(
+                "Nudge push: target '%s' is neither a known entity nor a service", target
             )
 
     async def _async_announce(self, task: Task) -> None:

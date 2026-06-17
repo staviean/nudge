@@ -66,7 +66,7 @@ CREATE_TASK_SCHEMA = vol.Schema(
         vol.Optional("interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Optional("weekdays"): [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
         vol.Optional("notification_type"): vol.In([n.value for n in NotificationType]),
-        vol.Optional("notify_service"): cv.string,
+        vol.Optional("notify_targets"): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional("announcement_message"): cv.string,
         vol.Optional("nag_enabled"): cv.boolean,
         vol.Optional("nag_interval_minutes"): vol.All(int, vol.Range(min=1)),
@@ -88,7 +88,7 @@ EDIT_TASK_SCHEMA = vol.Schema(
         vol.Optional("interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Optional("weekdays"): [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
         vol.Optional("notification_type"): vol.In([n.value for n in NotificationType]),
-        vol.Optional("notify_service"): cv.string,
+        vol.Optional("notify_targets"): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional("announcement_message"): cv.string,
         vol.Optional("nag_enabled"): cv.boolean,
         vol.Optional("nag_interval_minutes"): vol.All(int, vol.Range(min=1)),
@@ -169,7 +169,7 @@ def async_register_services(hass: HomeAssistant, store: "NudgeStore") -> None:
             notification_type=NotificationType(
                 d.get("notification_type", NotificationType.NONE)
             ),
-            notify_service=d.get("notify_service"),
+            notify_targets=d.get("notify_targets") or [],
             announcement_message=d.get("announcement_message"),
             nag_enabled=d.get("nag_enabled", False),
             nag_interval_minutes=d.get("nag_interval_minutes"),

@@ -10,7 +10,7 @@ DOMAIN: Final = "nudge"
 # --- Storage ---------------------------------------------------------------
 STORAGE_KEY: Final = f"{DOMAIN}.data"
 STORAGE_VERSION: Final = 1
-STORAGE_MINOR_VERSION: Final = 1
+STORAGE_MINOR_VERSION: Final = 2
 
 # --- Config / options keys -------------------------------------------------
 CONF_DEFAULT_NOTIFY: Final = "default_notify_service"   # e.g. "notify.mobile_app_pixel"

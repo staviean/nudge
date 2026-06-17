@@ -120,7 +120,7 @@ class Task:
 
     # Notification + nag config
     notification_type: NotificationType = NotificationType.NONE
-    notify_service: str | None = None        # override default notify target
+    notify_targets: list[str] = field(default_factory=list)  # devices/services; [] = use default
     announcement_message: str | None = None  # custom TTS/announce text (overrides default)
     nag_enabled: bool = False
     nag_interval_minutes: int | None = None  # None -> use integration default
@@ -154,7 +154,7 @@ class Task:
             "interval": self.interval,
             "weekdays": list(self.weekdays),
             "notification_type": str(self.notification_type),
-            "notify_service": self.notify_service,
+            "notify_targets": list(self.notify_targets),
             "announcement_message": self.announcement_message,
             "nag_enabled": self.nag_enabled,
             "nag_interval_minutes": self.nag_interval_minutes,
@@ -184,7 +184,10 @@ class Task:
             notification_type=NotificationType(
                 data.get("notification_type", NotificationType.NONE)
             ),
-            notify_service=data.get("notify_service"),
+            notify_targets=(
+                data.get("notify_targets")
+                or ([data["notify_service"]] if data.get("notify_service") else [])
+            ),
             announcement_message=data.get("announcement_message"),
             nag_enabled=bool(data.get("nag_enabled", False)),
             nag_interval_minutes=data.get("nag_interval_minutes"),
