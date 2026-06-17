@@ -56,6 +56,20 @@ def _add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=year, month=month, day=min(dt.day, last_day))
 
 
+def _naive_local(dt: datetime | None) -> datetime | None:
+    """Normalise a datetime to naive local time for safe comparison.
+
+    Due dates set via the UI/services arrive timezone-aware (UTC), while the
+    engine compares against ``datetime.now()`` (naive local). Converting any
+    aware value to local and dropping tzinfo keeps all comparisons consistent.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone().replace(tzinfo=None)
+    return dt
+
+
 @dataclass
 class Subtask:
     """A child item of a Task."""
@@ -212,57 +226,63 @@ class Task:
         (so an overdue task jumps to the next *future* slot instead of
         re-nagging in the past).
         """
-        if self.due is None or self.frequency is Frequency.NONE:
+        if self.frequency is Frequency.NONE:
             return None
 
-        due = self.due
+        # Normalise to naive local so aware (UTC, from the UI) and naive
+        # (datetime.now()) values are never compared directly.
+        now = _naive_local(from_dt)
+        # Anchor to the task's due time, or to *now* if it was never given a due
+        # — so completing a recurring task with no start time still rolls forward.
+        anchor = _naive_local(self.due) or now
         interval = self.interval if self.interval and self.interval > 0 else 1
 
         if self.frequency is Frequency.HOURLY:
-            return self._advance_fixed(timedelta(hours=interval), from_dt)
+            return self._advance_fixed(anchor, timedelta(hours=interval), now)
         if self.frequency is Frequency.DAILY:
-            return self._advance_fixed(timedelta(days=interval), from_dt)
+            return self._advance_fixed(anchor, timedelta(days=interval), now)
         if self.frequency is Frequency.WEEKLY:
             if self.weekdays:
-                return self._next_weekday_occurrence(from_dt, interval)
-            return self._advance_fixed(timedelta(weeks=interval), from_dt)
+                return self._next_weekday_occurrence(anchor, now, interval)
+            return self._advance_fixed(anchor, timedelta(weeks=interval), now)
         if self.frequency is Frequency.MONTHLY:
             k = 1
-            nxt = _add_months(due, interval)
-            while nxt <= from_dt:
+            nxt = _add_months(anchor, interval)
+            while nxt <= now:
                 k += 1
-                nxt = _add_months(due, interval * k)
+                nxt = _add_months(anchor, interval * k)
             return nxt
         if self.frequency is Frequency.YEARLY:
             k = 1
-            nxt = _add_months(due, 12 * interval)
-            while nxt <= from_dt:
+            nxt = _add_months(anchor, 12 * interval)
+            while nxt <= now:
                 k += 1
-                nxt = _add_months(due, 12 * interval * k)
+                nxt = _add_months(anchor, 12 * interval * k)
             return nxt
         return None
 
-    def _advance_fixed(self, step: timedelta, from_dt: datetime) -> datetime:
-        """Advance ``due`` by whole ``step``s until strictly past both ``due``
-        (at least one step) and ``from_dt``."""
-        nxt = self.due + step
+    def _advance_fixed(
+        self, anchor: datetime, step: timedelta, from_dt: datetime
+    ) -> datetime:
+        """Advance ``anchor`` by whole ``step``s until strictly past both
+        ``anchor`` (at least one step) and ``from_dt``."""
+        nxt = anchor + step
         while nxt <= from_dt:
             nxt += step
         return nxt
 
     def _next_weekday_occurrence(
-        self, from_dt: datetime, interval: int
+        self, anchor: datetime, from_dt: datetime, interval: int
     ) -> datetime | None:
         """Next occurrence for WEEKLY recurrence restricted to ``weekdays``.
 
-        Scans forward day by day for the first selected weekday, at ``due``'s
-        time-of-day, on a week that is an ``interval`` multiple from the due
-        week, and strictly after both ``due`` and ``from_dt``.
+        Scans forward day by day for the first selected weekday, at ``anchor``'s
+        time-of-day, on a week that is an ``interval`` multiple from the anchor
+        week, and strictly after both ``anchor`` and ``from_dt``.
         """
-        due = self.due
-        latest = max(due, from_dt)
-        tod = due.time()
-        anchor_monday = due.date() - timedelta(days=due.weekday())
+        latest = max(anchor, from_dt)
+        tod = anchor.time()
+        anchor_monday = anchor.date() - timedelta(days=anchor.weekday())
         day = latest.date()
         for _ in range(372):  # > 53 weeks; guaranteed to find a match
             candidate = datetime.combine(day, tod)
