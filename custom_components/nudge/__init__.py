@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+from .frontend import async_register_frontend
 from .nag_engine import NagEngine
 from .services import async_register_services, async_unregister_services
 from .store import NudgeStore
@@ -31,8 +32,17 @@ class NudgeRuntimeData:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register integration-wide pieces (websocket API) once at startup."""
+    """Register integration-wide pieces (websocket API + frontend card) once."""
     async_register_ws(hass)
+
+    async def _register_frontend(_event=None) -> None:
+        await async_register_frontend(hass)
+
+    # Lovelace resources are only available once HA has started.
+    if hass.state is CoreState.running:
+        await _register_frontend()
+    else:
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _register_frontend)
     return True
 
 
