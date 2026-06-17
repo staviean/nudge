@@ -19,3 +19,9 @@ Thumbs.db
 node_modules/
 dist/
 *.zip
+
+# Obsidian (vault = repo root). Ignore UI-state churn; keep shareable config.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/

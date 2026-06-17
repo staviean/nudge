@@ -1,0 +1,20 @@
+{
+	"nodes":[
+		{"id":"household","type":"text","text":"# 🏠 Household\n(shared root)","x":-40,"y":-420,"width":240,"height":90,"color":"4"},
+		{"id":"me","type":"text","text":"## 🧑 Me\nDefault: my phone","x":-360,"y":-240,"width":190,"height":80,"color":"1"},
+		{"id":"partner","type":"text","text":"## 🧑 Partner\nDefault: partner phone","x":-40,"y":-240,"width":190,"height":80,"color":"1"},
+		{"id":"kids","type":"text","text":"## 🧒 Kids\nDefault: kitchen tablet","x":280,"y":-240,"width":190,"height":80,"color":"1"},
+		{"id":"meds","type":"text","text":"### Morning meds\n**Daily @ 08:00**, nag every 15m\n*Send reminders to:* my phone\n\nSubtasks (reset each day):\n- [ ] Pills\n- [ ] Water\n- [ ] Log it\n\n*Custom announcement:* \"Time for your morning meds.\"","x":-470,"y":-60,"width":320,"height":170,"color":"2"},
+		{"id":"trash","type":"text","text":"### Take out trash\n**Weekly: Tue**, nag every 30m\n*Send reminders to:* my phone + kitchen tablet\n\n- [ ] Bins to curb\n- [ ] Swap liner","x":-470,"y":140,"width":320,"height":140,"color":"2"},
+		{"id":"chores","type":"text","text":"### Saturday family chores\n**Weekly: Sat @ 10:00**\n*Send reminders to:* everyone (all devices)\n\nSubtasks:\n- [ ] Vacuum\n- [ ] Yard\n- [ ] Dishes\n\nTests the **multi-target** + shared-task case.","x":120,"y":-60,"width":340,"height":170,"color":"3"},
+		{"id":"legend","type":"text","text":"## How to use this board\n\nMap **real** task hierarchies here. Two jobs:\n1. **Design check** — does Nudge's model hold these cleanly?\n2. **Test fixtures** — reuse these as data when testing Phase 4–7.\n\nNotation: Person → Task → (subtasks) → *Send reminders to*.","x":-840,"y":-422,"width":340,"height":445,"color":"6"}
+	],
+	"edges":[
+		{"id":"e1","fromNode":"household","fromSide":"bottom","toNode":"me","toSide":"top"},
+		{"id":"e2","fromNode":"household","fromSide":"bottom","toNode":"partner","toSide":"top"},
+		{"id":"e3","fromNode":"household","fromSide":"bottom","toNode":"kids","toSide":"top"},
+		{"id":"e4","fromNode":"me","fromSide":"bottom","toNode":"meds","toSide":"top"},
+		{"id":"e5","fromNode":"me","fromSide":"bottom","toNode":"trash","toSide":"top"},
+		{"id":"e6","fromNode":"household","fromSide":"bottom","toNode":"chores","toSide":"top"}
+	]
+}
