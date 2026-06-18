@@ -1,7 +1,7 @@
 {
   "domain": "nudge",
   "name": "Nudge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "documentation": "https://github.com/staviean/nudge",
   "issue_tracker": "https://github.com/staviean/nudge/issues",
   "codeowners": ["@staviean"],

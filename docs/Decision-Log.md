@@ -5,6 +5,19 @@ Newest at the top. See also [[BUILD_PLAN]] and [[Ideas-Backlog]].
 
 ---
 
+## 2026-06-17 — Create form: native HTML inputs, not ha-form/ha-dialog
+**Decision:** Build the create-task dialog as a self-contained modal with **native HTML**
+(`input type=date/time`, `select`, checkboxes) and native buttons — not HA's
+`ha-form`/`ha-dialog`/selectors.
+**Why:** `ha-form`/`ha-dialog` did not render reliably in the user's HA environment — the
+datetime selector wasn't interactive and the action buttons (`mwc-button`) never appeared
+(confirmed in an incognito window, so not a cache/plugin issue). Native HTML is deterministic,
+syntax-checkable with `node --check`, fully controllable, and `input type=date` gives the
+month-calendar popup the user wanted. Trade-off: less HA-polished look; can restyle later.
+**Also fixed during 6b testing:** recurrence with no due date (anchor to now) and aware/naive
+datetime comparison on completion (normalise to naive local) — see [[models]] `next_occurrence`.
+**Status:** Working in live HA.
+
 ## 2026-06-17 — Phase 4 complete: recurrence, announcements, multi-target notify (backend)
 **Decisions (implementation):**
 - **Recurrence model:** added `HOURLY` + two `Task` fields — `interval` ("every N") and `weekdays`
