@@ -43,7 +43,7 @@ class NudgeCard extends HTMLElement {
 
     const fld="display:block;width:100%;box-sizing:border-box;margin:4px 0 14px;padding:8px 10px;border-radius:6px;border:1px solid var(--divider-color,#444);background:var(--secondary-background-color,#2a2a2a);color:inherit;font-size:14px;color-scheme:light dark";
     const lbl="display:block;font-size:13px;font-weight:600;color:var(--secondary-text-color)";
-    const catOpts=`<option value="__none__">Uncategorized</option>`+cats.map((c)=>`<option value="${esc(c.uid)}">${esc(c.name)}</option>`).join("");
+    const catOpts=`<option value="__none__">Uncategorized</option>`+cats.map((c)=>`<option value="${esc(c.uid)}">${esc(c.name)}</option>`).join("")+`<option value="__new__">+ New category…</option>`;
     const freqOpts=["none","hourly","daily","weekly","monthly","yearly"].map((v)=>`<option value="${v}">${v[0].toUpperCase()+v.slice(1)}</option>`).join("");
     const notifOpts=[["none","None"],["push","Push notification"],["announce","Announce (TTS)"],["both","Both"]].map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
     const notifyChecks=notifyEnts.length?notifyEnts.map((e)=>`<label style="display:block;font-size:14px;margin:3px 0"><input type="checkbox" data-ntarget value="${esc(e)}"> ${esc(fname(e))}</label>`).join(""):`<div style="color:var(--secondary-text-color);font-size:13px">No notify devices found.</div>`;
@@ -82,6 +82,9 @@ class NudgeCard extends HTMLElement {
       q("#n-iv-lbl").textContent=`Repeat every — how many ${unit}?`;
     };
     freqSel.addEventListener("change",syncFreq);syncFreq();
+    const catSel=q("#n-cat");
+    catSel.dataset.prev=catSel.value;
+    catSel.addEventListener("change",()=>{if(catSel.value==="__new__"){this._createCategory(catSel);}else{catSel.dataset.prev=catSel.value;}});
     q("#n-cancel").addEventListener("click",()=>overlay.remove());
     q("#n-save").addEventListener("click",()=>this._submitCreate(panel,overlay));
     q("#n-summary").focus();
@@ -110,6 +113,24 @@ class NudgeCard extends HTMLElement {
     catch(err){this._toast(`Error: ${err&&err.message?err.message:err}`);}
   }
 
+  async _createCategory(catSel){
+    const name=(window.prompt("New category name:")||"").trim();
+    if(!name){catSel.value=catSel.dataset.prev||"__none__";return;}
+    const before=new Set(((this._data&&this._data.categories)||[]).map((c)=>c.uid));
+    try{
+      await this._hass.callService("nudge","create_category",{name});
+      const res=await this._hass.connection.sendMessagePromise({type:"nudge/get_data"});
+      const cat=(res.categories||[]).find((c)=>!before.has(c.uid))||(res.categories||[]).find((c)=>c.name===name);
+      if(cat){
+        const opt=document.createElement("option");
+        opt.value=cat.uid;opt.textContent=cat.name;
+        catSel.insertBefore(opt,catSel.querySelector('option[value="__new__"]'));
+        catSel.value=cat.uid;catSel.dataset.prev=cat.uid;
+        this._toast(`Category "${name}" created`);
+      }else{catSel.value=catSel.dataset.prev||"__none__";}
+    }catch(err){this._toast(`Error: ${err&&err.message?err.message:err}`);catSel.value=catSel.dataset.prev||"__none__";}
+  }
+
   _renderError(msg){this.innerHTML=`<ha-card header="Nudge"><div style="padding:16px;color:var(--error-color,#db4437)">Couldn't load Nudge data: ${esc(msg)}</div></ha-card>`;}
   _render(){
     const d=this._data||{categories:[],tasks:[]};const cats=d.categories||[],tasks=d.tasks||[];
@@ -135,4 +156,4 @@ class NudgeCard extends HTMLElement {
 if(!customElements.get("nudge-card"))customElements.define("nudge-card",NudgeCard);
 window.customCards=window.customCards||[];
 if(!window.customCards.some((c)=>c.type==="nudge-card"))window.customCards.push({type:"nudge-card",name:"Nudge",description:"Live view and management of your Nudge tasks",preview:false});
-console.info("%c NUDGE-CARD %c 6b native form ","background:#3f51b5;color:#fff;border-radius:3px","");
+console.info("%c NUDGE-CARD %c 6b create + categories ","background:#3f51b5;color:#fff;border-radius:3px","");
